@@ -1,56 +1,54 @@
 const puppeteer = require('puppeteer');
 
 (async () => {
-    // Launch a headless browser
     const browser = await puppeteer.launch();
-
-    // Open a new page
     const page = await browser.newPage();
-
-    // Navigate to the website
     await page.goto('https://www.examinations.ie/exammaterialarchive/');
+    await page.click('#MaterialArchive__noTable__cbv__AgreeCheck');
+    await new Promise(resolve => setTimeout(resolve, 5000));
 
-    // Check the checkbox by clicking it
-    await page.click('#MaterialArchive__noTable__cbv__AgreeCheck'); // Replace 'yourCheckboxId' with the actual ID of the checkbox
+    const selectElementIds = ['MaterialArchive__noTable__sbv__ViewType', 'MaterialArchive__noTable__sbv__YearSelect', 'MaterialArchive__noTable__sbv__ExaminationSelect', 'MaterialArchive__noTable__sbv__SubjectSelect'];
 
-    // Wait for some time to allow the website to update (adjust the duration as needed)
-    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait for 5 seconds (5000 milliseconds)
-
-    // Define an array of IDs of select elements to loop through
-    const selectElementIds = ['MaterialArchive__noTable__sbv__ViewType', 'MaterialArchive__noTable__sbv__YearSelect', 'MaterialArchive__noTable__sbv__ExaminationSelect', 'MaterialArchive__noTable__sbv__SubjectSelect']; // Add the IDs of select elements you want to loop through
-
-    // Function to select options from dynamically loaded select elements
-    async function selectOptions(selectId) {
-        // Get the list of options in the select element
-        const options = await page.evaluate((selectId) => {
+    async function getOptions(selectId) {
+        console.log(`Getting options for ${selectId}`);
+        return await page.evaluate((selectId) => {
             const selectElement = document.querySelector(`select[name="${selectId}"]`);
-            return Array.from(selectElement.options).slice(2).map(option => option.value); // Ignore the first two options
+            return Array.from(selectElement.options).slice(2).map(option => option.value);
         }, selectId);
-
-        // Loop through each option and select it
-        for (const optionValue of options) {
-            // Select the option from the dropdown
+    }
+    
+    async function selectOption(selectId, optionValue) {
+        console.log(`Selecting option ${optionValue} for ${selectId}`);
+        try {
             await page.select(`select[name="${selectId}"]`, optionValue);
-
-            // Wait for the page navigation to complete
             await page.waitForNavigation();
+        } catch (error) {
+            console.error(`Failed to select option ${optionValue} from ${selectId}: ${error}`);
+            return false;
+        }
+        return true;
+    }
 
-            // Capture the HTML content of the updated webpage
-            const htmlContent = await page.content();
-
-            // Save the captured HTML content to a file
-            const fs = require('fs');
-            fs.writeFileSync(`pages/updated_website_with_${selectId}_${optionValue}.html`, htmlContent);
-
-            console.log(`Website with selected option from ${selectId} (${optionValue}) updated and saved to updated_website_with_${selectId}_${optionValue}.html`);
+    const options1 = await getOptions(selectElementIds[0]);
+    for (const option1 of options1) {
+        if (!await selectOption(selectElementIds[0], option1)) continue;
+        const options2 = await getOptions(selectElementIds[1]);
+        for (const option2 of options2) {
+            if (!await selectOption(selectElementIds[1], option2)) continue;
+            const options3 = await getOptions(selectElementIds[2]);
+            for (const option3 of options3) {
+                if (!await selectOption(selectElementIds[2], option3)) continue;
+                const options4 = await getOptions(selectElementIds[3]);
+                for (const option4 of options4) {
+                    if (!await selectOption(selectElementIds[3], option4)) continue;
+                    const htmlContent = await page.content();
+                    const fs = require('fs');
+                    fs.writeFileSync(`pages/updated_website_with_${option1}_${option2}_${option3}_${option4}.html`, htmlContent);
+                    console.log(`Website with selected options (${option1}, ${option2}, ${option3}, ${option4}) updated and saved to updated_website_with_${option1}_${option2}_${option3}_${option4}.html`);
+                }
+            }
         }
     }
 
-    // Loop through each select element ID
-    for (const selectId of selectElementIds) {
-        await selectOptions(selectId);
-    }
-
-    // Close the browser
     await browser.close();
 })();
