@@ -16,32 +16,39 @@ const puppeteer = require('puppeteer');
     // Wait for some time to allow the website to update (adjust the duration as needed)
     await new Promise(resolve => setTimeout(resolve, 5000)); // Wait for 5 seconds (5000 milliseconds)
 
-    // Get the list of options in the select element
-    const selectOptions = await page.evaluate(() => {
-        const options = [];
-        const selectElement = document.querySelector('select[name="MaterialArchive__noTable__sbv__ViewType"]'); // Replace 'yourSelectName' with the actual name of the select element
-        for (const option of selectElement.options) {
-            options.push(option.value);
+    // Define an array of IDs of select elements to loop through
+    const selectElementIds = ['MaterialArchive__noTable__sbv__ViewType', 'MaterialArchive__noTable__sbv__YearSelect', 'MaterialArchive__noTable__sbv__ExaminationSelect', 'MaterialArchive__noTable__sbv__SubjectSelect']; // Add the IDs of select elements you want to loop through
+
+    // Function to select options from dynamically loaded select elements
+    async function selectOptions(selectId) {
+        // Get the list of options in the select element
+        const options = await page.evaluate((selectId) => {
+            const selectElement = document.querySelector(`select[name="${selectId}"]`);
+            return Array.from(selectElement.options).slice(2).map(option => option.value); // Ignore the first two options
+        }, selectId);
+
+        // Loop through each option and select it
+        for (const optionValue of options) {
+            // Select the option from the dropdown
+            await page.select(`select[name="${selectId}"]`, optionValue);
+
+            // Wait for the page navigation to complete
+            await page.waitForNavigation();
+
+            // Capture the HTML content of the updated webpage
+            const htmlContent = await page.content();
+
+            // Save the captured HTML content to a file
+            const fs = require('fs');
+            fs.writeFileSync(`pages/updated_website_with_${selectId}_${optionValue}.html`, htmlContent);
+
+            console.log(`Website with selected option from ${selectId} (${optionValue}) updated and saved to updated_website_with_${selectId}_${optionValue}.html`);
         }
-        return options;
-    });
+    }
 
-    // Loop through each option, select it, and capture the HTML content of the updated webpage
-    for (const optionValue of selectOptions) {
-        // Select the option from the dropdown
-        await page.select('select[name="MaterialArchive__noTable__sbv__ViewType"]', optionValue); // Replace 'yourSelectName' with the actual name of the select element
-
-        // Wait for the page navigation to complete
-        await page.waitForNavigation();
-
-        // Capture the HTML content of the updated webpage
-        const htmlContent = await page.content();
-
-        // Save the captured HTML content to a file
-        const fs = require('fs');
-        fs.writeFileSync(`updated_website_with_option_${optionValue}.html`, htmlContent);
-
-        console.log(`Website with selected option ${optionValue} updated and saved to updated_website_with_option_${optionValue}.html`);
+    // Loop through each select element ID
+    for (const selectId of selectElementIds) {
+        await selectOptions(selectId);
     }
 
     // Close the browser
